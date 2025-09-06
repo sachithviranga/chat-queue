@@ -4,6 +4,7 @@ using ChatQueue.Domain.Configuration;
 using ChatQueue.Domain.Entities;
 using ChatQueue.Domain.Enums;
 using ChatQueue.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace ChatQueue.Application.Tests.Services
@@ -16,9 +17,10 @@ namespace ChatQueue.Application.Tests.Services
         private readonly Mock<IPollingRepository> _pollingRepoMock = new();
         private readonly Mock<IDateTimeProvider> _clockMock = new();
         private readonly ChatConfiguration _cfg = new() { AgentBaseConcurrency = 10, QueueMultiplier = 1.5 };
+        private readonly Mock<ILogger<ChatService>> _loggerMock = new();
 
         private ChatService chatService =>
-            new(_queueMock.Object, _sessionQueueRepoMock.Object, _teamRepoMock.Object, _pollingRepoMock.Object, _clockMock.Object, _cfg);
+            new(_queueMock.Object, _sessionQueueRepoMock.Object, _teamRepoMock.Object, _pollingRepoMock.Object, _clockMock.Object, _cfg , _loggerMock.Object);
 
 
         [Fact]

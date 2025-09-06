@@ -2,7 +2,7 @@ name: Unit Tests Service
 
 on:
   pull_request:
-    branches: [dev, master]
+    branches: [developement, master]
 
 jobs:
   tests:
