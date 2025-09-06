@@ -6,5 +6,7 @@
         public int AgentBaseConcurrency { get; set; } = 10;
         public int InactiveAfterSeconds { get; set; } = 4;
         public int InactiveAfterCount { get; set; } = 3;
+
+        public int MaxIdleSeconds {  get; set; } = 10;
     }
 }
