@@ -29,11 +29,11 @@ namespace ChatQueue.Application.Services
         {
             var now = _clock.Now;
             var threshold = TimeSpan.FromSeconds(_cfg.InactiveAfterSeconds);
-
+            var maximumIdleTime = TimeSpan.FromSeconds(_cfg.MaxIdleSeconds);
             foreach (var session in _queue.Snapshot().Where(a => a.Status != ChatSessionStatus.Inactive))
             {
                 var last = _polling.GetLasteUpdateDateTime(session.Id) ?? session.AssignedAt;
-                if (now - last >= threshold && _polling.IsInactive(session.Id, _cfg.InactiveAfterCount) && _queue.Inactive(session.Id))
+                if (now - last >= threshold && (_polling.IsInactive(session.Id, _cfg.InactiveAfterCount) || now - last > maximumIdleTime) && _queue.Inactive(session.Id))
                 {
                     _logger.LogInformation("Releasing inactive session {SessionId}. Last activity: {LastActivity}, Now: {Now}, Threshold: {Threshold}", session.Id, last, now, threshold);
                     await _assignments.ReleaseAsync(session.Id);
