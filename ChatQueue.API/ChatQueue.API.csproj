@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Quartz" Version="3.15.0" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.15.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChatQueue.Application\ChatQueue.Application.csproj" />
+    <ProjectReference Include="..\ChatQueue.Domain\ChatQueue.Domain.csproj" />
+    <ProjectReference Include="..\ChatQueue.Infrastructure\ChatQueue.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
