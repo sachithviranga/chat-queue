@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.36105.23 d17.13
+VisualStudioVersion = 17.13.36105.23
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatQueue.API", "ChatQueue.API\ChatQueue.API.csproj", "{6FE82604-366D-4C38-8051-37A17DD8B829}"
 EndProject
@@ -10,6 +10,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatQueue.Application", "ChatQueue.Application\ChatQueue.Application.csproj", "{0CD87B5C-1DD2-4350-8A11-F370574B2137}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatQueue.Infrastructure", "ChatQueue.Infrastructure\ChatQueue.Infrastructure.csproj", "{933F8DBF-C65F-46D1-9BF3-06FA362BFC6C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatQueue.API.Tests", "ChatQueue.API.Tests\ChatQueue.API.Tests.csproj", "{C60F6155-E5E6-4990-9D7B-35D3AB19A425}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatQueue.Application.Tests", "ChatQueue.Application.Tests\ChatQueue.Application.Tests.csproj", "{D6341B0D-BFCD-4F12-B807-EE75F9FBFB00}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +37,14 @@ Global
 		{933F8DBF-C65F-46D1-9BF3-06FA362BFC6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{933F8DBF-C65F-46D1-9BF3-06FA362BFC6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{933F8DBF-C65F-46D1-9BF3-06FA362BFC6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C60F6155-E5E6-4990-9D7B-35D3AB19A425}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C60F6155-E5E6-4990-9D7B-35D3AB19A425}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C60F6155-E5E6-4990-9D7B-35D3AB19A425}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C60F6155-E5E6-4990-9D7B-35D3AB19A425}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6341B0D-BFCD-4F12-B807-EE75F9FBFB00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6341B0D-BFCD-4F12-B807-EE75F9FBFB00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6341B0D-BFCD-4F12-B807-EE75F9FBFB00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6341B0D-BFCD-4F12-B807-EE75F9FBFB00}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
