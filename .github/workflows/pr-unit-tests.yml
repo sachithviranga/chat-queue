@@ -1,0 +1,60 @@
+name: Unit Tests 
+on:
+  pull_request:
+    branches: [dev, master]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'  # change if you use 7/6
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      # Runs every test project it can find (*Tests.csproj or *.Tests.csproj).
+      # If you have a single test project, replace this block with a direct `dotnet test <path>.csproj`.
+      - name: Run tests
+        run: |
+          set -e
+          found=false
+          for proj in $(git ls-files | grep -E '(^|/)[^/]*(Tests|\.Tests)\.csproj$' || true); do
+            found=true
+            echo "Running tests for: $proj"
+            dotnet test "$proj" \
+              --no-build \
+              --configuration Release \
+              --logger "trx;LogFileName=$(basename "$proj").trx" \
+              --collect:"XPlat Code Coverage"
+          done
+          if [ "$found" = false ]; then
+            echo "No test projects found. Skipping."; exit 0
+          fi
+
+      - name: Upload test results & coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-artifacts
+          path: |
+            **/TestResults/*.trx
+            **/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: ignore
