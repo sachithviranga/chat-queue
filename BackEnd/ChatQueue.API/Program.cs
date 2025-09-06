@@ -8,102 +8,128 @@ using ChatQueue.Infrastructure.Data.Repositories;
 using ChatQueue.Infrastructure.Services;
 using Microsoft.Extensions.Options;
 using Quartz;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json")
+        .AddJsonFile("serilog.json", optional: true)
+        .Build()
+    )
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-
-builder.Services.Configure<QuartzSettings>(builder.Configuration.GetSection("Quartz"));
-builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<QuartzSettings>>().Value);
-
-builder.Services.Configure<ChatConfiguration>(builder.Configuration.GetSection("ChatSettings"));
-builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ChatConfiguration>>().Value);
-
-
-builder.Services.AddSingleton<IChatQueueService, InMemoryChatQueueService>();
-builder.Services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
-
-builder.Services.AddSingleton<IPollingRepository, InMemoryPollingRepository>();
-builder.Services.AddSingleton<ITeamRepository, InMemoryTeamRepository>();
-builder.Services.AddSingleton<IAssignmentRepository, InMemoryAssignmentRepository>();
-builder.Services.AddSingleton<ISessionQueueRepository, InMemorySessionQueueRepository>();
-
-builder.Services.AddScoped<IChatDispatcher, ChatDispatcher>();
-builder.Services.AddScoped<IChatService, ChatService>();
-builder.Services.AddScoped<IChatMaintenanceService, ChatMaintenanceService>();
-
-builder.Services.Configure<QuartzSettings>(builder.Configuration.GetSection("Quartz"));
-var quartzSettings = builder.Configuration.GetSection("Quartz").Get<QuartzSettings>() ?? new QuartzSettings();
-
-builder.Services.AddQuartz(q =>
+try
 {
-    // ---- InactiveCleanupJob ----
-    var cleanupKey = new JobKey("InactiveCleanupJob");
-    q.AddJob<InactiveCleanupJob>(opts => opts.WithIdentity(cleanupKey));
+    Log.Information("Starting up ChatQueue API...");
 
-    if (!string.IsNullOrWhiteSpace(quartzSettings.InactiveCleanup.Cron))
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Add services to the container.
+
+    builder.Services.AddControllers();
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+
+
+    builder.Services.Configure<QuartzSettings>(builder.Configuration.GetSection("Quartz"));
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<QuartzSettings>>().Value);
+
+    builder.Services.Configure<ChatConfiguration>(builder.Configuration.GetSection("ChatSettings"));
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ChatConfiguration>>().Value);
+
+
+    builder.Services.AddSingleton<IChatQueueService, InMemoryChatQueueService>();
+    builder.Services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+
+    builder.Services.AddSingleton<IPollingRepository, InMemoryPollingRepository>();
+    builder.Services.AddSingleton<ITeamRepository, InMemoryTeamRepository>();
+    builder.Services.AddSingleton<IAssignmentRepository, InMemoryAssignmentRepository>();
+    builder.Services.AddSingleton<ISessionQueueRepository, InMemorySessionQueueRepository>();
+
+    builder.Services.AddScoped<IChatDispatcher, ChatDispatcher>();
+    builder.Services.AddScoped<IChatService, ChatService>();
+    builder.Services.AddScoped<IChatMaintenanceService, ChatMaintenanceService>();
+
+    builder.Services.Configure<QuartzSettings>(builder.Configuration.GetSection("Quartz"));
+    var quartzSettings = builder.Configuration.GetSection("Quartz").Get<QuartzSettings>() ?? new QuartzSettings();
+
+    builder.Services.AddQuartz(q =>
     {
-        q.AddTrigger(t => t
-            .ForJob(cleanupKey)
-            .WithIdentity("InactiveCleanupTrigger")
-            .WithCronSchedule(quartzSettings.InactiveCleanup.Cron));
-    }
-    else if (quartzSettings.InactiveCleanup.IntervalSeconds is int s && s > 0)
+        // ---- InactiveCleanupJob ----
+        var cleanupKey = new JobKey("InactiveCleanupJob");
+        q.AddJob<InactiveCleanupJob>(opts => opts.WithIdentity(cleanupKey));
+
+        if (!string.IsNullOrWhiteSpace(quartzSettings.InactiveCleanup.Cron))
+        {
+            q.AddTrigger(t => t
+                .ForJob(cleanupKey)
+                .WithIdentity("InactiveCleanupTrigger")
+                .WithCronSchedule(quartzSettings.InactiveCleanup.Cron));
+        }
+        else if (quartzSettings.InactiveCleanup.IntervalSeconds is int s && s > 0)
+        {
+            q.AddTrigger(t => t
+                .ForJob(cleanupKey)
+                .WithIdentity("InactiveCleanupTrigger")
+                .StartNow()
+                .WithSimpleSchedule(x => x.WithIntervalInSeconds(s).RepeatForever()));
+        }
+
+        // ---- DispatchJob ----
+        var dispatchKey = new JobKey("DispatchJob");
+        q.AddJob<DispatchJob>(opts => opts.WithIdentity(dispatchKey));
+
+        if (!string.IsNullOrWhiteSpace(quartzSettings.Dispatch.Cron))
+        {
+            q.AddTrigger(t => t
+                .ForJob(dispatchKey)
+                .WithIdentity("DispatchTrigger")
+                .WithCronSchedule(quartzSettings.Dispatch.Cron));
+        }
+        else if (quartzSettings.Dispatch.IntervalMilliseconds is int ms && ms > 0)
+        {
+            q.AddTrigger(t => t
+                .ForJob(dispatchKey)
+                .WithIdentity("DispatchTrigger")
+                .StartNow()
+                .WithSimpleSchedule(x => x.WithInterval(TimeSpan.FromMilliseconds(ms)).RepeatForever()));
+        }
+    });
+
+
+    builder.Services.AddQuartzHostedService(opts =>
     {
-        q.AddTrigger(t => t
-            .ForJob(cleanupKey)
-            .WithIdentity("InactiveCleanupTrigger")
-            .StartNow()
-            .WithSimpleSchedule(x => x.WithIntervalInSeconds(s).RepeatForever()));
-    }
+        opts.WaitForJobsToComplete = true;
+    });
 
-    // ---- DispatchJob ----
-    var dispatchKey = new JobKey("DispatchJob");
-    q.AddJob<DispatchJob>(opts => opts.WithIdentity(dispatchKey));
 
-    if (!string.IsNullOrWhiteSpace(quartzSettings.Dispatch.Cron))
+    var app = builder.Build();
+
+    // Configure the HTTP request pipeline.
+    if (app.Environment.IsDevelopment())
     {
-        q.AddTrigger(t => t
-            .ForJob(dispatchKey)
-            .WithIdentity("DispatchTrigger")
-            .WithCronSchedule(quartzSettings.Dispatch.Cron));
+        app.UseSwagger();
+        app.UseSwaggerUI();
     }
-    else if (quartzSettings.Dispatch.IntervalMilliseconds is int ms && ms > 0)
-    {
-        q.AddTrigger(t => t
-            .ForJob(dispatchKey)
-            .WithIdentity("DispatchTrigger")
-            .StartNow()
-            .WithSimpleSchedule(x => x.WithInterval(TimeSpan.FromMilliseconds(ms)).RepeatForever()));
-    }
-});
 
+    app.UseHttpsRedirection();
 
-builder.Services.AddQuartzHostedService(opts =>
-{
-    opts.WaitForJobsToComplete = true;
-});
+    app.UseAuthorization();
 
+    app.MapControllers();
 
-var app = builder.Build();
+    await app.RunAsync();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-await app.RunAsync();
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application start-up failed");
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
+}

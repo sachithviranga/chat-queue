@@ -1,9 +1,11 @@
 ﻿using ChatQueue.API.Controllers;
 using ChatQueue.Application.Interfaces.Services;
+using ChatQueue.Application.Services;
 using ChatQueue.Domain.Entities;
 using ChatQueue.Domain.Enums;
 using ChatQueue.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace ChatQueue.API.Tests
@@ -12,8 +14,9 @@ namespace ChatQueue.API.Tests
     {
         private readonly Mock<IChatService> _chatService = new();
         private readonly Mock<IDateTimeProvider> _clock = new();
+        private readonly Mock<ILogger<ChatController>> _loggerMock = new();
 
-        private  ChatController _chatController => new(_chatService.Object);
+        private  ChatController _chatController => new(_chatService.Object, _loggerMock.Object);
 
 
         [Fact]
