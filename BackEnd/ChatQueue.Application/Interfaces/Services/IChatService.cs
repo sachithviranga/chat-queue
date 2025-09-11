@@ -6,6 +6,6 @@ namespace ChatQueue.Application.Interfaces.Services
     {
         Task<ChatSession> CreateChatAsync(CancellationToken ct = default);
 
-        void Poll(Guid sessionId);
+        Task<bool> PollAsync(Guid sessionId, CancellationToken ct = default);
     }
 }

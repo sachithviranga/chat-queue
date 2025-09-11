@@ -39,7 +39,7 @@ namespace ChatQueue.Application.Services
             IDateTimeProvider clock,
             ILogger<ChatDispatcher> logger)
             => (_queue, _sessionQueueRepository, _teams, _assignments, _pollingRepository, _cfg, _clock, _logger) =
-            (queue, sessionQueueRepository, teams, assignments , pollingRepository, cfg, clock, logger);
+            (queue, sessionQueueRepository, teams, assignments, pollingRepository, cfg, clock, logger);
 
         public async Task<AssignedChatSession?> DispatchNextAsync(CancellationToken ct = default)
         {
@@ -69,9 +69,9 @@ namespace ChatQueue.Application.Services
                 _logger.LogInformation("Assigned session {SessionId} to agent {AgentId} from main teams.", head.Id, a1);
                 _queue.TryRemove(head.Id);
                 var session = new AssignedChatSession(head.Id, head.CreatedAt, ChatSessionStatus.Assigned, a1, now);
-                _sessionQueueRepository.Add(session);
+                await _sessionQueueRepository.AddAsync(session, ct);
 
-                _pollingRepository.RegisterPoll(session.Id, now);
+                await _pollingRepository.RegisterPollAsync(session.Id, now);
 
                 return session;
             }
@@ -88,8 +88,8 @@ namespace ChatQueue.Application.Services
                         _logger.LogInformation("Assigned session {SessionId} to agent {AgentId} from overflow team.", head.Id, a2);
                         _queue.TryRemove(head.Id);
                         var session = new AssignedChatSession(head.Id, head.CreatedAt, ChatSessionStatus.Assigned, a2, now);
-                        _sessionQueueRepository.Add(session);
-                        _pollingRepository.RegisterPoll(session.Id, now);
+                        await _sessionQueueRepository.AddAsync(session, ct);
+                        await _pollingRepository.RegisterPollAsync(session.Id, now);
                         return session;
                     }
                     else

@@ -7,7 +7,7 @@ using ChatQueue.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 
-namespace ChatQueue.Application.Tests.Services
+namespace ChatQueue.Application.Tests
 {
     public class ChatServiceTests
     {
@@ -49,7 +49,7 @@ namespace ChatQueue.Application.Tests.Services
             _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ChatServiceTestData.Teams);
             _queueMock.Setup(q => q.Count).Returns(0);
-            _sessionQueueRepoMock.Setup(r => r.Count()).Returns(0);
+            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
             // Act
             var result = await chatService.CreateChatAsync();
@@ -69,7 +69,7 @@ namespace ChatQueue.Application.Tests.Services
             _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ChatServiceTestData.Teams);
             _queueMock.Setup(q => q.Count).Returns(0);
-            _sessionQueueRepoMock.Setup(r => r.Count()).Returns(ChatServiceTestData.MaxQueueLimit);
+            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ChatServiceTestData.MaxQueueLimit);
             _teamRepoMock.Setup(r => r.GetOverflowAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Team?)null);
 
@@ -90,7 +90,7 @@ namespace ChatQueue.Application.Tests.Services
             _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ChatServiceTestData.Teams);
             _queueMock.SetupSequence(q => q.Count).Returns(0);
-            _sessionQueueRepoMock.Setup(r => r.Count()).Returns(ChatServiceTestData.MaxQueueLimit);
+            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ChatServiceTestData.MaxQueueLimit);
             _teamRepoMock.Setup(r => r.GetOverflowAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ChatServiceTestData.OverflowTeam);
 
@@ -104,18 +104,38 @@ namespace ChatQueue.Application.Tests.Services
         }
 
         [Fact]
-        public void Poll_UpdatesPolling()
+        public async Task PollAsync_ReturnsFalse_WhenSessionDoesNotExist()
         {
             // Arrange
-            var now = DateTime.Now;
-            _clockMock.Setup(c => c.Now).Returns(now);
             var sessionId = Guid.NewGuid();
+            _sessionQueueRepoMock.Setup(r => r.IsExistAsync(sessionId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(false);
 
             // Act
-            chatService.Poll(sessionId);
+            var result = await chatService.PollAsync(sessionId);
 
             // Assert
-            _pollingRepoMock.Verify(p => p.UpdatePoll(sessionId, now), Times.Once);
+            Assert.False(result);
+            _pollingRepoMock.Verify(p => p.UpdatePollAsync(It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task PollAsync_ReturnsTrue_AndUpdatesPoll_WhenSessionExists()
+        {
+            // Arrange
+            var sessionId = Guid.NewGuid();
+            var now = DateTime.UtcNow;
+            _sessionQueueRepoMock.Setup(r => r.IsExistAsync(sessionId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+            _clockMock.Setup(c => c.Now).Returns(now);
+
+
+            // Act
+            var result = await chatService.PollAsync(sessionId);
+
+            // Assert
+            Assert.True(result);
+            _pollingRepoMock.Verify(p => p.UpdatePollAsync(sessionId, now, It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 }
