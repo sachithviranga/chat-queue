@@ -22,7 +22,7 @@ namespace ChatQueue.Application.Services
             IAssignmentRepository assignments,
             IDateTimeProvider clock,
             ChatConfiguration cfg,
-            ILogger<ChatMaintenanceService> logger) => 
+            ILogger<ChatMaintenanceService> logger) =>
             (_queue, _polling, _assignments, _clock, _cfg, _logger) =
             (queue, polling, assignments, clock, cfg, logger);
         public async Task CleanupInactiveAsync(CancellationToken ct = default)
@@ -30,10 +30,11 @@ namespace ChatQueue.Application.Services
             var now = _clock.Now;
             var threshold = TimeSpan.FromSeconds(_cfg.InactiveAfterSeconds);
             var maximumIdleTime = TimeSpan.FromSeconds(_cfg.MaxIdleSeconds);
-            foreach (var session in _queue.Snapshot().Where(a => a.Status != ChatSessionStatus.Inactive))
+            var sessions = await _queue.SnapshotAsync(ct);
+            foreach (var session in sessions.Where(a => a.Status != ChatSessionStatus.Inactive))
             {
-                var last = _polling.GetLasteUpdateDateTime(session.Id) ?? session.AssignedAt;
-                if (now - last >= threshold && (_polling.IsInactive(session.Id, _cfg.InactiveAfterCount) || now - last > maximumIdleTime) && _queue.Inactive(session.Id))
+                var last = await _polling.GetLasteUpdateDateTimeAsync(session.Id, ct) ?? session.AssignedAt;
+                if (now - last >= threshold && (await _polling.IsInactiveAsync(session.Id, _cfg.InactiveAfterCount, ct) || now - last > maximumIdleTime) && await _queue.InactiveAsync(session.Id , ct))
                 {
                     _logger.LogInformation("Releasing inactive session {SessionId}. Last activity: {LastActivity}, Now: {Now}, Threshold: {Threshold}", session.Id, last, now, threshold);
                     await _assignments.ReleaseAsync(session.Id);

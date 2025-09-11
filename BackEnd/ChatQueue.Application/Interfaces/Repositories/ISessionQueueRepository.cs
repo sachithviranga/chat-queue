@@ -5,12 +5,14 @@ namespace ChatQueue.Application.Interfaces.Repositories
 {
     public interface ISessionQueueRepository
     {
-        void Add(AssignedChatSession session);
+        Task AddAsync(AssignedChatSession session, CancellationToken ct = default);
 
-        bool Inactive(Guid sessionId);
+        Task<bool> IsExistAsync(Guid sessionId, CancellationToken ct = default);
 
-        int Count();
+        Task<bool> InactiveAsync(Guid sessionId, CancellationToken ct = default);
 
-        IReadOnlyList<AssignedChatSession> Snapshot();
+        Task<int> CountAsync(CancellationToken ct = default);
+
+        Task<IReadOnlyList<AssignedChatSession>> SnapshotAsync(CancellationToken ct = default);
     }
 }

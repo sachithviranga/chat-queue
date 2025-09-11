@@ -1,7 +1,5 @@
-﻿using ChatQueue.Application.Interfaces.Services;
-using ChatQueue.Domain.Entities;
-using ChatQueue.Domain.Interfaces;
-using Microsoft.AspNetCore.Http;
+﻿using ChatQueue.API.Models.Chat;
+using ChatQueue.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatQueue.API.Controllers
@@ -20,14 +18,14 @@ namespace ChatQueue.API.Controllers
         }
 
         [HttpPost("create")]
-        public async Task<ActionResult<ChatSession>> Create(CancellationToken ct)
+        public async Task<ActionResult<ChatSessionResponse>> Create(CancellationToken ct)
         {
             try
             {
                 _logger.LogInformation("Received request to create a new chat session.");
                 var session = await _chatService.CreateChatAsync(ct);
                 _logger.LogInformation("Successfully created chat session with ID: {SessionId}", session.Id);
-                return Ok(session);
+                return Ok(new ChatSessionResponse { CreatedAt = session.CreatedAt, Id = session.Id, Status = session.Status.ToString() });
             }
             catch (Exception ex)
             {
@@ -37,18 +35,25 @@ namespace ChatQueue.API.Controllers
         }
 
         [HttpPost("{sessionId:guid}/poll")]
-        public IActionResult Poll(Guid sessionId)
+        public async Task<IActionResult> Poll(Guid sessionId, CancellationToken ct)
         {
             try
             {
-                _logger.LogInformation("Polling chat session with ID: {SessionId}", sessionId);
-                _chatService.Poll(sessionId);
-                _logger.LogInformation("Polling successful for session ID: {SessionId}", sessionId);
-                return Ok(new { message = "poll ok" });
+                _logger.LogInformation("Received poll request for chat session with ID: {SessionId}", sessionId);
+                if (!await _chatService.PollAsync(sessionId , ct))
+                {
+                    _logger.LogWarning("Session not found or inactive for session ID: {SessionId}", sessionId);
+                    return NotFound(new { error = "Session not found or inactive." });
+                }
+                else
+                {
+                    _logger.LogInformation("Polling succeeded for session ID: {SessionId}", sessionId);
+                    return Ok(new { message = "poll ok" });
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while polling chat session {SessionId}.", sessionId);
+                _logger.LogError(ex, "Error occurred while polling chat session with ID: {SessionId}", sessionId);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An error occurred while polling the chat session." });
             }
         }

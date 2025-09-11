@@ -7,7 +7,7 @@ namespace ChatQueue.Infrastructure.Data.Repositories
     {
         private readonly Dictionary<Guid, PollSession> _pollQueue = [];
 
-        public void RegisterPoll(Guid sessionId, DateTime updateDate)
+        public Task RegisterPollAsync(Guid sessionId, DateTime updateDate, CancellationToken ct = default)
         {
             if (!_pollQueue.TryGetValue(sessionId, out _))
             {
@@ -17,9 +17,10 @@ namespace ChatQueue.Infrastructure.Data.Repositories
                     Count: 0
                 );
             }
+            return Task.CompletedTask;
         }
 
-        public void UpdatePoll(Guid sessionId, DateTime updateDate)
+        public Task UpdatePollAsync(Guid sessionId, DateTime updateDate, CancellationToken ct = default)
         {
             if (_pollQueue.TryGetValue(sessionId, out var session))
             {
@@ -37,27 +38,28 @@ namespace ChatQueue.Infrastructure.Data.Repositories
                     Count: 1
                 );
             }
+            return Task.CompletedTask;
         }
 
-        public DateTime? GetLasteUpdateDateTime(Guid sessionId)
+        public Task<DateTime?> GetLasteUpdateDateTimeAsync(Guid sessionId, CancellationToken ct = default)
         {
+            DateTime? lasteUpdateDateTime = null;
+
             if (_pollQueue.TryGetValue(sessionId, out var session))
             {
-                return session.UpdateAt;
+                lasteUpdateDateTime = session.UpdateAt;
             }
-            return null;
+            return Task.FromResult(lasteUpdateDateTime);
         }
 
-        public bool IsInactive(Guid sessionId, int Count)
+        public Task<bool> IsInactiveAsync(Guid sessionId, int Count, CancellationToken ct = default)
         {
+            bool result = true;
             if (_pollQueue.TryGetValue(sessionId, out var session))
             {
-                return session.Count < Count;
+                result = session.Count < Count;
             }
-            else
-            {
-                return true;
-            }
+            return Task.FromResult(result);
         }
     }
 }

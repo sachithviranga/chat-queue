@@ -55,7 +55,7 @@ namespace ChatQueue.Application.Services
                 var allAgents = eligibleTeams.SelectMany(t => t.Agents).ToList();
                 _logger.LogInformation("Total agents available: {AgentCount}", allAgents.Count);
 
-                if (QueueIsFull(allAgents))
+                if (await QueueIsFull(allAgents, ct))
                 {
                     _logger.LogInformation("Queue is full for eligible teams.");
 
@@ -71,7 +71,7 @@ namespace ChatQueue.Application.Services
                         allAgents.AddRange(overflow.Agents);
                         _logger.LogInformation("Added overflow agents. Total agents now: {AgentCount}", allAgents.Count);
 
-                        if (QueueIsFull(allAgents))
+                        if (await QueueIsFull(allAgents, ct))
                         {
                             _logger.LogInformation("Queue is still full after adding overflow agents. Refusing chat.");
                             return Refused(now);
@@ -95,7 +95,14 @@ namespace ChatQueue.Application.Services
             return Refused(now);
         }
 
-        public void Poll(Guid sessionId) => _polling.UpdatePoll(sessionId, _clock.Now);
+        public async Task<bool> PollAsync(Guid sessionId, CancellationToken ct = default)
+        {
+            if (!await _sessionQueueRepository.IsExistAsync(sessionId))
+                return false;
+
+            await _polling.UpdatePollAsync(sessionId, _clock.Now, ct);
+            return true;
+        }
 
         private (int capacity, int queueLimit) ComputeCapacityAndLimit(IEnumerable<Agent> agents)
         {
@@ -104,11 +111,11 @@ namespace ChatQueue.Application.Services
             return (capacity, queueLimit);
         }
 
-        private bool QueueIsFull(IEnumerable<Agent> agents)
+        private async Task<bool> QueueIsFull(IEnumerable<Agent> agents, CancellationToken ct = default)
         {
             var (_, queueLimit) = ComputeCapacityAndLimit(agents);
             if (queueLimit == 0) return false;
-            return _queue.Count + _sessionQueueRepository.Count() >= queueLimit;
+            return _queue.Count + await _sessionQueueRepository.CountAsync(ct) >= queueLimit;
         }
 
         private static bool IsOverflow(Team t) =>

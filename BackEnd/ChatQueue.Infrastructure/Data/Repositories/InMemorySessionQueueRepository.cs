@@ -8,18 +8,30 @@ namespace ChatQueue.Infrastructure.Data.Repositories
     {
         private readonly List<AssignedChatSession> _assignedQueue = [];
 
-        public void Add(AssignedChatSession session)
+        public Task AddAsync(AssignedChatSession session, CancellationToken ct = default)
         {
             if (session is null) throw new ArgumentNullException(nameof(session));
             if (session.Status != ChatSessionStatus.Assigned)
                 throw new InvalidOperationException("Only Assigned sessions can be enqueued.");
 
             _assignedQueue.Add(session);
+
+            return Task.CompletedTask;
         }
 
-        public int Count() => _assignedQueue.Count(a => a.Status != ChatSessionStatus.Inactive);
+        public Task<bool> IsExistAsync(Guid sessionId, CancellationToken ct = default)
+        {
+            var isExist = _assignedQueue.Exists(a => a.Id == sessionId && a.Status == ChatSessionStatus.Assigned);
+            return Task.FromResult(isExist);
+        }
 
-        public bool Inactive(Guid sessionId)
+        public Task<int> CountAsync(CancellationToken ct = default)
+        {
+            int count = _assignedQueue.Count(a => a.Status != ChatSessionStatus.Inactive);
+            return Task.FromResult(count);
+        }
+
+        public Task<bool> InactiveAsync(Guid sessionId, CancellationToken ct = default)
         {
             var isInactived = false;
             if (_assignedQueue.Exists(a => a.Id == sessionId))
@@ -34,10 +46,13 @@ namespace ChatQueue.Infrastructure.Data.Repositories
                     }
                 }
             }
-            return isInactived;
+            return Task.FromResult(isInactived);
         }
 
-        public IReadOnlyList<AssignedChatSession> Snapshot() => _assignedQueue;
+        public Task<IReadOnlyList<AssignedChatSession>> SnapshotAsync(CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<AssignedChatSession>>(_assignedQueue.AsReadOnly());
+        }
 
     }
 }

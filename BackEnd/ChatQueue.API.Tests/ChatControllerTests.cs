@@ -1,4 +1,5 @@
 ﻿using ChatQueue.API.Controllers;
+using ChatQueue.API.Models.Chat;
 using ChatQueue.Application.Interfaces.Services;
 using ChatQueue.Application.Services;
 using ChatQueue.Domain.Entities;
@@ -37,7 +38,7 @@ namespace ChatQueue.API.Tests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var session = Assert.IsType<ChatSession>(okResult.Value);
+            var session = Assert.IsType<ChatSessionResponse>(okResult.Value);
             Assert.Equal(expectedSession.Id, session.Id);
         }
 

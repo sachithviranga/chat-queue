@@ -2,10 +2,9 @@
 {
     public interface IPollingRepository
     {
-        void RegisterPoll(Guid sessionId, DateTime updateDate);
-
-        void UpdatePoll(Guid sessionId, DateTime updateDate);
-        DateTime? GetLasteUpdateDateTime(Guid sessionId);
-        bool IsInactive(Guid sessionId , int Count);
+        Task RegisterPollAsync(Guid sessionId, DateTime updateDate, CancellationToken ct = default);
+        Task UpdatePollAsync(Guid sessionId, DateTime updateDate, CancellationToken ct = default);
+        Task<DateTime?> GetLasteUpdateDateTimeAsync(Guid sessionId, CancellationToken ct = default);
+        Task<bool> IsInactiveAsync(Guid sessionId, int Count, CancellationToken ct = default);
     }
 }
