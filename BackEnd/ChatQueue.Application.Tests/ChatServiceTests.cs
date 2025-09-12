@@ -3,6 +3,7 @@ using ChatQueue.Application.Services;
 using ChatQueue.Domain.Configuration;
 using ChatQueue.Domain.Entities;
 using ChatQueue.Domain.Enums;
+using ChatQueue.Domain.Exceptions;
 using ChatQueue.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -61,31 +62,10 @@ namespace ChatQueue.Application.Tests
         }
 
         [Fact]
-        public async Task CreateChatAsync_Refuses_WhenQueueFull_AndNoOverflow()
-        {
-            // Arrange
-            var now = new DateTime(2025, 09, 06, 10, 00, 00, DateTimeKind.Local);
-            _clockMock.Setup(c => c.Now).Returns(now);
-            _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ChatServiceTestData.Teams);
-            _queueMock.Setup(q => q.Count).Returns(0);
-            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ChatServiceTestData.MaxQueueLimit);
-            _teamRepoMock.Setup(r => r.GetOverflowAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Team?)null);
-
-            // Act
-            var result = await chatService.CreateChatAsync();
-
-            // Assert
-            Assert.Equal(ChatSessionStatus.Refused, result.Status);
-            Assert.Equal(now, result.CreatedAt);
-        }
-
-        [Fact]
-        public async Task CreateChatAsync_UsesOverflow_WhenQueueFull_AndOverflowAvailable()
+        public async Task CreateChatAsync_UsesOverflow_WhenQueueFull_AndOverflowAvailable_ShiftMoring()
         {
             //Arrange
-            var now = DateTime.Now;
+            var now = new DateTime(2025, 09, 06, 10, 00, 00, DateTimeKind.Local);
             _clockMock.Setup(c => c.Now).Returns(now);
             _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ChatServiceTestData.Teams);
@@ -101,6 +81,43 @@ namespace ChatQueue.Application.Tests
             _queueMock.Verify(q => q.Enqueue(It.IsAny<ChatSession>()), Times.Once);
             Assert.Equal(ChatSessionStatus.Queued, result.Status);
             Assert.Equal(now, result.CreatedAt);
+        }
+
+        [Fact]
+        public async Task CreateChatAsync_ShouldThrowQueueFullException_WhenQueueFull_AndNoOverflow_ShiftMoring()
+        {
+            // Arrange
+            var now = new DateTime(2025, 09, 06, 10, 00, 00, DateTimeKind.Local);
+            _clockMock.Setup(c => c.Now).Returns(now);
+            _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ChatServiceTestData.Teams);
+            _queueMock.Setup(q => q.Count).Returns(0);
+            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ChatServiceTestData.MaxQueueLimit);
+            _teamRepoMock.Setup(r => r.GetOverflowAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Team?)null);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<QueueFullException>(() =>
+                chatService.CreateChatAsync(CancellationToken.None)
+            );
+        }
+
+        [Fact]
+        public async Task CreateChatAsync_ShouldThrowQueueFullException_WhenQueueFull_ShiftNight()
+        {
+            // Arrange
+            var now = new DateTime(2025, 09, 06, 20, 00, 00, DateTimeKind.Local);
+            _clockMock.Setup(c => c.Now).Returns(now);
+            _teamRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ChatServiceTestData.Teams);
+            _queueMock.Setup(q => q.Count).Returns(0);
+            _sessionQueueRepoMock.Setup(r => r.CountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ChatServiceTestData.MaxQueueLimit);
+
+
+            // Act & Assert
+            await Assert.ThrowsAsync<QueueFullException>(() =>
+                chatService.CreateChatAsync(CancellationToken.None)
+            );
         }
 
         [Fact]

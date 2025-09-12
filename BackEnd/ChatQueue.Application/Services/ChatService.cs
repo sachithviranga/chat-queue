@@ -3,6 +3,7 @@ using ChatQueue.Application.Interfaces.Services;
 using ChatQueue.Domain.Configuration;
 using ChatQueue.Domain.Entities;
 using ChatQueue.Domain.Enums;
+using ChatQueue.Domain.Exceptions;
 using ChatQueue.Domain.Interfaces;
 using ChatQueue.Domain.Utilities;
 using Microsoft.Extensions.Logging;
@@ -47,53 +48,52 @@ namespace ChatQueue.Application.Services
             _logger.LogInformation("Attempting to create chat at {Time} during {Shift} shift.", now, currentShift);
 
             var teams = await _teams.GetAllAsync(ct);
-            var eligibleTeams = teams.Where(t => t.AssignedShift == currentShift && !IsOverflow(t)).ToList();
+            var eligibleTeams = teams
+                .Where(t => t.AssignedShift == currentShift && !IsOverflow(t))
+                .ToList();
+
             _logger.LogInformation("Found {TeamCount} eligible teams for shift {Shift}.", eligibleTeams.Count, currentShift);
 
-            if (eligibleTeams.Any())
+            if (!eligibleTeams.Any())
             {
-                var allAgents = eligibleTeams.SelectMany(t => t.Agents).ToList();
-                _logger.LogInformation("Total agents available: {AgentCount}", allAgents.Count);
-
-                if (await QueueIsFull(allAgents, ct))
-                {
-                    _logger.LogInformation("Queue is full for eligible teams.");
-
-                    if (ShiftHelper.IsOfficeHours(now))
-                    {
-                        var overflow = await _teams.GetOverflowAsync(ct);
-                        if (overflow is null)
-                        {
-                            _logger.LogInformation("Overflow team not found. Refusing chat.");
-                            return Refused(now);
-                        }
-
-                        allAgents.AddRange(overflow.Agents);
-                        _logger.LogInformation("Added overflow agents. Total agents now: {AgentCount}", allAgents.Count);
-
-                        if (await QueueIsFull(allAgents, ct))
-                        {
-                            _logger.LogInformation("Queue is still full after adding overflow agents. Refusing chat.");
-                            return Refused(now);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Not office hours and queue is full. Refusing chat.");
-                        return Refused(now);
-                    }
-                }
-
-                var session = new ChatSession(Guid.NewGuid(), now, ChatSessionStatus.Queued);
-                _queue.Enqueue(session);
-                _logger.LogInformation("Chat session {SessionId} created and enqueued at {Time}.", session.Id, now);
-
-                return session;
+                _logger.LogInformation("No eligible teams found. Refusing chat.");
+                return Refused(now);
             }
 
-            _logger.LogInformation("No eligible teams found. Refusing chat.");
-            return Refused(now);
+            var allAgents = eligibleTeams.SelectMany(t => t.Agents).ToList();
+
+            if (await QueueIsFull(allAgents))
+            {
+                _logger.LogInformation("Queue is full for eligible teams.");
+
+                if (ShiftHelper.IsOfficeHours(now))
+                {
+                    var overflow = await _teams.GetOverflowAsync(ct);
+                    if (overflow == null || await QueueIsFull(allAgents.Concat(overflow.Agents).ToList()))
+                    {
+                        _logger.LogInformation("Overflow team not found or also full. Refusing chat.");
+                        throw new QueueFullException("Chat queue is full including overflow.");
+                    }
+
+                    allAgents.AddRange(overflow.Agents);
+                    _logger.LogInformation("Using overflow agents. New total agent count: {Count}", allAgents.Count);
+                }
+                else
+                {
+                    _logger.LogInformation("Not office hours and queue is full. Refusing chat.");
+                    throw new QueueFullException("Chat queue is full.");
+                }
+            }
+
+            var session = new ChatSession(Guid.NewGuid(), now, ChatSessionStatus.Queued);
+
+            _queue.Enqueue(session);
+
+            _logger.LogInformation("Session created and queued. sessiod id {Id}",session.Id);
+
+            return session;
         }
+
 
         public async Task<bool> PollAsync(Guid sessionId, CancellationToken ct = default)
         {
