@@ -1,5 +1,6 @@
 ﻿using ChatQueue.API.Models.Chat;
 using ChatQueue.Application.Interfaces.Services;
+using ChatQueue.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatQueue.API.Controllers
@@ -27,10 +28,15 @@ namespace ChatQueue.API.Controllers
                 _logger.LogInformation("Successfully created chat session with ID: {SessionId}", session.Id);
                 return Ok(new ChatSessionResponse { CreatedAt = session.CreatedAt, Id = session.Id, Status = session.Status.ToString() });
             }
+            catch (QueueFullException ex)
+            {
+                _logger.LogWarning(ex, "Queue full: {Message}", ex.Message);
+                return StatusCode(StatusCodes.Status429TooManyRequests, new { error = ex.Message });
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while creating chat session.");
-                return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An error occurred while creating the chat session." });
+                _logger.LogError(ex, "Unexpected error during chat creation.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An error occurred." });
             }
         }
 
